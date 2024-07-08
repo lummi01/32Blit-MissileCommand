@@ -47,7 +47,7 @@ struct MISSILE
     Vec2 start;
     Vec2 pos;
     Vec2 vel;
-    int target;
+    short target;
 };
 
 static std::list<EXPLOSION> particles;
@@ -58,6 +58,7 @@ SHOT shot[4];
 MISSILE missile[9];
 
 Timer base_timer;
+Timer missile_timer;
 
 
 void NewExplosion(Vec2 pos)
@@ -65,8 +66,8 @@ void NewExplosion(Vec2 pos)
     EXPLOSION e;
     e.pos = pos;
     e.alpha = rand() %256;
-    e.radius = .2f;
-    e.rdx = .2f;
+    e.radius = .25f;
+    e.rdx = .25f;
     particles.push_back(e);
 }
 
@@ -74,54 +75,63 @@ void UpdateExplosion()
 {
     for(auto e = particles.begin(); e != particles.end();) 
 	{
-        if(e->radius < .2f) 
+        if(e->radius < .25f) 
 		{
             e = particles.erase(e);
             continue;
         }
         e->alpha = rand() %256;;
         e->radius += e->rdx;
-        if (e->radius > 12)
-            e->rdx = -.2f;
+        if (e->radius > 13)
+            e->rdx = -.25f;
         ++e;
     }
 }
 
 void NewMissile(short type)
 {
-    int space = type * 20;
+    short anz = type;
     int y = 0;
     if (type == 4)
     {
-        space = 60;
+        anz = 3;
         y = 50; // Höhe Flugzeug
     }
     else if (type == 5)
-        space = 20;
+        anz = 1;
+    int x = 20 + rand() %(140 - (anz * 20));
+    short x1 = rand() %(10 - anz);
 
-    for (short i=0; i<9; i++)
+    for (short t=0; t<anz; t++)
     {
-        if (missile[i].type == 0)
+        for (short i=0; i<9; i++)
         {
-            missile[i].type = type;
-            missile[i].start = Vec2(20 + rand() %(140 - space), y);
-            missile[i].pos = missile[i].start;
-            missile[i].target = rand() %9;
-            float dx = (missile[i].target * 20) - missile[i].start.x;
-            float dy = 110 - missile[i].start.y;
-            float s = sqrt((dx * dx) + (dy * dy)) * 8;
-            missile[i].vel = Vec2(dx / s, dy / s);
-            break;
+            if (missile[i].type == 0)
+            {
+                missile[i].type = type;
+                missile[i].start = Vec2(x + (t * 20), y);
+                missile[i].pos = missile[i].start;
+                missile[i].target = x1 + t;
+                float dx = (missile[i].target * 20) - missile[i].start.x;
+                float dy = 110 - missile[i].start.y;
+                float s = sqrt((dx * dx) + (dy * dy)) * 8;
+                missile[i].vel = Vec2(dx / s, dy / s);
+                break;
+            }
         }
     }
 }
 
 void UpdateMissile()
 {
+    bool missiles = false;
+
     for (short i=0; i<9; i++)
     {
         if (missile[i].type > 0)
         {
+            missiles = true;
+
             missile[i].pos += missile[i].vel;
             if (missile[i].pos.y > 110)
             {
@@ -146,7 +156,7 @@ void UpdateMissile()
 
                 missile[i].type = 0;
                 NewExplosion(missile[i].pos);
-                NewMissile(1);
+//                NewMissile(1 + rand() %3);
             }
             else
             {
@@ -159,12 +169,26 @@ void UpdateMissile()
                     {
                         missile[i].type = 0;
                         NewExplosion(missile[i].pos);
-                        NewMissile(1);
+//                        NewMissile(1 + rand() %3);
+                        break;
                     }
                 }
             }
         }
     }
+    
+    if (missiles == false)
+    {
+        NewMissile(1 + rand() %3);
+        missile_timer.start();
+    }
+}
+
+void Missile(Timer &t)
+{
+    NewMissile(1 + rand() %3);
+    missile_timer.init(Missile, (1 + rand() %10) * 1000, 1);
+    missile_timer.start();
 }
 
 void NewShot(short i)
@@ -265,6 +289,8 @@ void init()
 
     base_timer.init(UpdateBase, 100, -1);
     base_timer.start();
+    missile_timer.init(Missile, 10000, 1);
+    missile_timer.start();
 
     p.pos = Vec2(79,59);
 
