@@ -90,29 +90,25 @@ void UpdateExplosion()
 
 void NewMissile(short type)
 {
-    short anz = type;
-    int y = 0;
-    if (type == 4)
-    {
-        anz = 3;
-        y = 50; // Höhe Flugzeug
-    }
-    else if (type == 5)
-        anz = 1;
-    int x = 20 + rand() %(140 - (anz * 20));
-    short x1 = rand() %(10 - anz);
+    short anz[7]{1,2,2,2,2,3,3};
+    short space[7]{0,1,2,3,4,1,2};
+    
+    int target = rand() %(9 - ((anz[type - 1] - 1) * space[type - 1]));
+    int x0 = 20 + rand() %(120 - ((anz[type - 1] - 1) * space[type -1] * 20));
+    int x1 = target * 20;
+    int y0 = 0; 
 
-    for (short t=0; t<anz; t++)
+    for (short t=0; t<anz[type - 1]; t++)
     {
         for (short i=0; i<9; i++)
         {
             if (missile[i].type == 0)
             {
                 missile[i].type = type;
-                missile[i].start = Vec2(x + (t * 20), y);
+                missile[i].start = Vec2(x0 + (t * (space[type -1] * 20)), y0);
                 missile[i].pos = missile[i].start;
-                missile[i].target = x1 + t;
-                float dx = (missile[i].target * 20) - missile[i].start.x;
+                missile[i].target = target + (t * (space[type -1]));
+                float dx = x1 + (t * (space[type - 1] * 20)) - missile[i].start.x;
                 float dy = 110 - missile[i].start.y;
                 float s = sqrt((dx * dx) + (dy * dy)) * 8;
                 missile[i].vel = Vec2(dx / s, dy / s);
@@ -156,7 +152,6 @@ void UpdateMissile()
 
                 missile[i].type = 0;
                 NewExplosion(missile[i].pos);
-//                NewMissile(1 + rand() %3);
             }
             else
             {
@@ -169,7 +164,6 @@ void UpdateMissile()
                     {
                         missile[i].type = 0;
                         NewExplosion(missile[i].pos);
-//                        NewMissile(1 + rand() %3);
                         break;
                     }
                 }
@@ -179,14 +173,14 @@ void UpdateMissile()
     
     if (missiles == false)
     {
-        NewMissile(1 + rand() %3);
+        NewMissile(1 + rand() %7);
         missile_timer.start();
     }
 }
 
 void Missile(Timer &t)
 {
-    NewMissile(1 + rand() %3);
+    NewMissile(1 + rand() %7);
     missile_timer.init(Missile, (1 + rand() %10) * 1000, 1);
     missile_timer.start();
 }
@@ -300,7 +294,7 @@ void init()
         p.mag[i] = 3;
     }
 
-    NewMissile(1);
+    NewMissile(1 + rand() %7);
 }
 
 // render()
