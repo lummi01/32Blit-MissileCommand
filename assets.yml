@@ -1,0 +1,18 @@
+# All these assets will be created in assets.cpp, which CMake will
+# link automagically.
+# References can be picked up by including assets.hpp
+
+assets.cpp:
+  assets/image.png:
+    name: image
+
+  assets/icon.png:
+    name: icon
+
+  assets/spritesheet.png:
+    name: sprites
+
+  assets/3x5font.png:
+    name: font3x5
+    type: font/image
+
