@@ -55,17 +55,17 @@ struct MISSILE
     short target;
 };
 
-/*
+
 struct PLANE
 {
-    bool is;
-    short sprite;
-    int x;
     int y;
-    short dx;
-    int drop;
+    Tween tween;
+    int mstart;
+    int mtarget;
+    Vec2 vel;
+    short missiles;
 };
-*/
+
 
 static std::list<EXPLOSION> particles;
 
@@ -73,13 +73,11 @@ GAME game;
 PLAYER p;
 SHOT shot[4];
 MISSILE missile[MAX_MISSILES];
-//PLANE plane;
+PLANE plane[2];
 
 Timer base_timer;
 Timer attack_timer;
 Timer rumble_timer;
-
-//Tween flash_timer;
 
 
 void NewExplosion(Vec2 pos)
@@ -109,91 +107,54 @@ void UpdateExplosion()
     }
 }
 
-void SetMissile(short type, int x0, int y0, short target, short anz, short space)
-{
-    for (short t=0; t<anz; t++)
-    {
-        for (short i=0; i<MAX_MISSILES; i++)
-        {
-            if (missile[i].type == 0)
-            {
-                game.missiles++;
-                missile[i].type = type;
-                missile[i].start = Vec2(x0 + (t * (space * 20)), y0);
-                missile[i].pos = missile[i].start;
-                missile[i].target = target + (t * (space));
-                float dx = (target * 20) + (t * (space * 20)) - missile[i].start.x;
-                float dy = 110 - missile[i].start.y;
-                float s = sqrt((dx * dx) + (dy * dy)) * 8;
-                missile[i].vel = Vec2(dx / s, dy / s);
-                break;
-            }
-        }
-    }
-}
-
 void NewMissile(short type)
 {
-    short anz[8]{1,2,2,2,2,3,3,1};
-    short space[8]{0,1,2,3,4,1,2,0};
+    type--;
+    short anz[10]{1,2,2,2,2,3,3,10,11,1};
+    short space[10]{0,1,2,3,4,1,2,-1,1,0};
 
-    int target = rand() %(9 - ((anz[type - 1] - 1) * space[type - 1]));
-    int x0 = 20 + rand() %(120 - ((anz[type - 1] - 1) * space[type -1] * 20));
-    int y0 = 0; 
-
-    for (short t=0; t<anz[type - 1]; t++)
+    if (anz[type] > 9)
     {
-        for (short i=0; i<MAX_MISSILES; i++)
+        short i = type - 7;
+        if (plane[i].tween.is_running() == false)
         {
-            if (missile[i].type == 0)
-            {
-                game.missiles++;
-                missile[i].type = type;
-                missile[i].start = Vec2(x0 + (t * (space[type - 1] * 20)), y0);
-                missile[i].pos = missile[i].start;
-                missile[i].target = target + (t * (space[type - 1]));
-                float dx = (target * 20) + (t * (space[type - 1] * 20)) - missile[i].start.x;
-                float dy = 110 - missile[i].start.y;
-                float s = sqrt((dx * dx) + (dy * dy)) * 8;
-                missile[i].vel = Vec2(dx / s, dy / s);
-                break;
-            }
-        }
-    }
-
-
-
-/*
-    if (type == 8 )
-    {
-            if (plane.is == false)
-            {
-                plane.is = true;
-                if (rand() %2 == 0)
-                {
-                    plane.sprite = 41;
-                    plane.x = 160;
-                    plane.dx = -1;
-                    plane.drop = 140 - rand() %80;
-                }
-                else
-                {
-                    plane.sprite = 42;
-                    plane.x = -8;
-                    plane.dx = 1;
-                    plane.drop = 20 + rand() %80;
-                }
-                plane.y = 10 + rand() %70;
-            }
+            plane[i].missiles = 0;
+            plane[i].mtarget = 3 + rand() %3;
+            plane[i].mstart = (plane[i].mtarget + space[type]) * 20;
+            plane[i].y = 10 + rand() %50;
+            float dx = (plane[i].mtarget * 20) - plane[i].mstart;
+            float dy = 110 - (plane[i].y + 2);
+            float s = sqrt((dx * dx) + (dy * dy));
+            plane[i].vel = Vec2(dx / s * .15f, dy / s * .15f);
+            plane[i].tween.start();
         }
     }
     else
-*/
-//    {
+    {
+        int target = rand() %(9 - ((anz[type] - 1) * space[type]));
+        int x0 = 20 + rand() %(120 - ((anz[type] - 1) * space[type] * 20));
+        int y0 = 0; 
 
-
-
-//    }
+        for (short t=0; t<anz[type]; t++)
+        {
+            for (short i=0; i<MAX_MISSILES; i++)
+            {
+                if (missile[i].type == 0)
+                {
+                    game.missiles++;
+                    type < 8? missile[i].type = 1: missile[i].type = 2;
+                    missile[i].start = Vec2(x0 + (t * (space[type] * 20)), y0);
+                    missile[i].pos = missile[i].start;
+                    missile[i].target = target + (t * (space[type]));
+                    float dx = (target * 20) + (t * (space[type] * 20)) - missile[i].start.x;
+                    float dy = 110 - missile[i].start.y;
+                    float s = sqrt((dx * dx) + (dy * dy));
+                    missile[i].vel = Vec2(dx / s * .15f, dy / s * .15f);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 void UpdateMissile()
@@ -204,7 +165,7 @@ void UpdateMissile()
         {
             missile[i].pos += missile[i].vel;
 
-            if (missile[i].type == 8)
+            if (missile[i].type == 2)
             {
                 for(auto &e : particles) 
             	{
@@ -214,7 +175,7 @@ void UpdateMissile()
                     if (d < (e.radius + 8))// explosion in der nähe
                     {
                         missile[i].pos -= missile[i].vel;
-                        missile[i].pos -= Vec2(dx / (d * 7), dy / (d * 7));
+                        missile[i].pos -= Vec2(dx / (d * 8), dy / (d * 8));
 
                         dx = (missile[i].target * 20) - missile[i].pos.x;
                         dy = 110 - missile[i].pos.y;
@@ -269,33 +230,65 @@ void UpdateMissile()
         }
     }
     
+/*
     if (game.missiles == 0)
     {
-        NewMissile(1 + rand() %8);
+        NewMissile(1 + rand() %10);
         attack_timer.start();
     }
+*/
 }
 
 void Attack(Timer &t)
 {
-    NewMissile(1 + rand() %8);
-    attack_timer.init(Attack, (1 + rand() %10) * 1000, 1);
-    attack_timer.start();
+    NewMissile(1 + rand() %10);
 }
 
-/*
 void UpdatePlane()
 {
-    if (plane.is)
+    for (short i=0; i<2; i++)
     {
-        plane.x += plane.dx;
-        if (plane.x < -7 || plane.x > 159)
-            plane.is = false;
-        else if (plane.x == plane.drop)
-            NewMissile(10);
+        if (plane[i].tween.is_running())
+        {
+            if (int(plane[i].tween.value - plane[i].mstart) == 0)
+            {
+                for (short t=0; t<MAX_MISSILES; t++)
+                {
+                    if (missile[t].type == 0)
+                    {
+                        short space[2]{1, -1};
+                        game.missiles++;
+                        missile[t].type = 1;
+                        missile[t].start = Vec2(plane[i].mstart, plane[i].y + 2);
+                        missile[t].pos = missile[t].start;
+                        missile[t].target = plane[i].mtarget;
+                        missile[t].vel = plane[i].vel;
+                        plane[i].missiles++;
+                        if (plane[i].missiles < 3)
+                        {
+                            plane[i].mstart += (space[i] * 20);
+                            plane[i].mtarget += space[i];
+                        }
+                        break;
+                    }
+                }
+            }
+
+            for(auto &e : particles) 
+          	{
+                float dx = e.pos.x - (plane[i].tween.value + 3);
+                float dy = e.pos.y - (plane[i].y + 2);
+                float d = sqrt((dx * dx) + (dy * dy));
+                if (d < (e.radius + 3))
+                {
+                    NewExplosion(Vec2(plane[i].tween.value, plane[i].y));
+                    plane[i].tween.stop();
+                    break;
+                }
+            }
+        }
     }
 }
-*/
 
 void Rumble(Timer &t)
 {
@@ -409,9 +402,13 @@ void init()
 
     base_timer.init(UpdateBase, 175, -1);
     base_timer.start();
-    attack_timer.init(Attack, 10000, 1);
+    attack_timer.init(Attack, 5000, -1);
     attack_timer.start();
-    rumble_timer.init(Rumble, 10, 50);
+    rumble_timer.init(Rumble, 10, 75);
+
+    plane[0].tween.init(tween_linear, -4, 159, 6000, 1);
+    plane[1].tween.init(tween_linear, 163, -8, 6000, 1);
+
 
     p.pos = Vec2(79,59);
 
@@ -449,21 +446,20 @@ void render(uint32_t time)
             screen.sprite(14, Point(rpos[i][r].x + game.rx, rpos[i][r].y + game.ry));
     }
 
-    screen.sprite(15, Point(p.pos.x - 2, p.pos.y - 2));
-
     screen.pen = Pen(0, 0, 255);
     for (short i=0; i<MAX_MISSILES; i++)
-        if (missile[i].type < 8 && missile[i].type > 0)
+        if (missile[i].type == 1)
             for (int t=missile[i].start.y; t<missile[i].pos.y; t++)
-                screen.pixel(Point(missile[i].start.x + (missile[i].vel.x * (t / missile[i].vel.y)), t));
+                screen.pixel(Point(missile[i].start.x + (missile[i].vel.x * ((t - missile[i].start.y)/ missile[i].vel.y)), t));
 
     screen.pen = Pen(255, 0, 0);
     for (short i=0; i<MAX_MISSILES; i++)
         if (missile[i].type > 0)
             screen.pixel(Point(missile[i].pos.x, missile[i].pos.y));
 
-//    if (plane.is)
-//        screen.sprite(plane.sprite, Point(plane.x, plane.y));
+    for (short i=0; i<2; i++)
+        if (plane[i].tween.is_running())
+            screen.sprite(42 + i, Point(plane[i].tween.value - 4, plane[i].y - 2));
 
     //explosion
     screen.pen = Pen(255, 255, 255);
@@ -472,6 +468,8 @@ void render(uint32_t time)
     	screen.alpha = e.alpha;
         screen.circle(Point(e.pos.x, e.pos.y),e.radius);
     }
+
+    screen.sprite(15, Point(p.pos.x - 2, p.pos.y - 2));
 
     screen.alpha = 255;
 
@@ -486,8 +484,6 @@ void render(uint32_t time)
     score_txt.erase(0, score.size());
     screen.text(score_txt + score, font, Point(80, 1), true, TextAlign::top_center);        
 
-    screen.text(std::to_string(game.missiles), font, Point(158, 1), true, TextAlign::top_right);        
-
     screen.pen = Pen(0, 0, 0);
 }
 
@@ -498,4 +494,5 @@ void update(uint32_t time)
     UpdateShot();
     UpdateExplosion();
     UpdateMissile();
+    UpdatePlane();
 }
