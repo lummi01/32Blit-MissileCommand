@@ -5,7 +5,7 @@
 #include "missile.hpp"
 #include "assets.hpp"
 
-#define MAX_MISSILES 6
+#define MAX_MISSILES 8
 
 using namespace blit;
 
@@ -119,7 +119,7 @@ void NewMissile(short type)
         if (plane[i].tween.is_running() == false)
         {
             plane[i].missiles = 0;
-            plane[i].mtarget = 3 + rand() %3;
+            plane[i].mtarget = 2 + rand() %5;
             plane[i].mstart = (plane[i].mtarget + space[type]) * 20;
             plane[i].y = 10 + rand() %50;
             float dx = (plane[i].mtarget * 20) - plane[i].mstart;
@@ -256,7 +256,6 @@ void UpdatePlane()
                 {
                     if (missile[t].type == 0)
                     {
-                        short space[2]{1, -1};
                         game.missiles++;
                         missile[t].type = 1;
                         missile[t].start = Vec2(plane[i].mstart, plane[i].y + 2);
@@ -264,13 +263,14 @@ void UpdatePlane()
                         missile[t].target = plane[i].mtarget;
                         missile[t].vel = plane[i].vel;
                         plane[i].missiles++;
-                        if (plane[i].missiles < 3)
-                        {
-                            plane[i].mstart += (space[i] * 20);
-                            plane[i].mtarget += space[i];
-                        }
                         break;
                     }
+                }
+                if (plane[i].missiles < 3)
+                {
+                    short space[2]{1, -1};
+                    plane[i].mstart += (space[i] * 20);
+                    plane[i].mtarget += space[i];
                 }
             }
 
