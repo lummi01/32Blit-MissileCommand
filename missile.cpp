@@ -15,7 +15,9 @@ struct GAME
 {
     short state;
     int score;
+    int bonus;
     short level;
+    short ground;
     short rx;
     short ry;
     short city[6]{10,10,10,10,10,10};
@@ -79,6 +81,7 @@ Timer base_timer;
 Timer attack_timer;
 Timer rumble_timer;
 Timer count_timer;
+Timer wait_timer;
 
 static std::list<EXPLOSION> particles;
 
@@ -107,6 +110,12 @@ void UpdateExplosion()
             e->rdx = -.25f;
         ++e;
     }
+}
+
+void AddScore(short s)
+{
+    game.score += s;
+    game.bonus += s;
 }
 
 void NewMissile(short type)
@@ -205,11 +214,11 @@ void UpdateMissile()
                         p.mag[t]--;
                     }
                 }
-                else if (missile[i].target < 4)
+                else if (missile[i].target < 4 && game.city[missile[i].target - 1] == 10)
                 {
                     game.city[missile[i].target - 1] = 12;
                 }
-                else
+                else if (game.city[missile[i].target - 2] == 10)
                 {
                     game.city[missile[i].target - 2] = 12;
                 }
@@ -227,6 +236,7 @@ void UpdateMissile()
                     float d = sqrt((dx * dx) + (dy * dy));
                     if (d < e.radius)
                     {
+                        AddScore(missile[i].type * 50);
                         missile[i].type = 0;
                         game.missiles--;
                         NewExplosion(missile[i].pos);
@@ -286,11 +296,12 @@ void UpdatePlane()
 
             for(auto &e : particles) 
           	{
-                float dx = e.pos.x - (plane[i].tween.value + 3);
-                float dy = e.pos.y - (plane[i].y + 2);
+                float dx = e.pos.x - (plane[i].tween.value);
+                float dy = e.pos.y - (plane[i].y);
                 float d = sqrt((dx * dx) + (dy * dy));
                 if (d < (e.radius + 3))
                 {
+                    AddScore(75);
                     NewExplosion(Vec2(plane[i].tween.value, plane[i].y));
                     plane[i].tween.stop();
                     break;
@@ -322,6 +333,7 @@ void Count(Timer &t)
         if (p.shot[b] > 0)
         {
             counting = true;
+            AddScore(5);
             game.count_missiles++;
             p.shot[b]--;
             if (p.shot[b] == 0 && p.mag[b] > 0)
@@ -339,15 +351,36 @@ void Count(Timer &t)
             if (game.city[c] == 10)
             {
                 counting = true;
+                AddScore(100);
                 game.city[c] = 14;
                 game.count_city[c] = 10;
                 break;
             }
         }
     }
-    if (counting == false) 
+    if (counting == false)
+    {
+        short dc = 0;
+        for (short i=0; i<6; i++)
+            if (game.count_city[i] == 14)
+                dc++;
+        while (game.bonus > 5000 && dc > 0) 
+        {
+            int c = rand() %6;
+            if (game.count_city[c] == 14)
+            {
+                game.city[c] = 10;
+                game.bonus -= 5000;
+                dc--;
+            }
+        }
+        wait_timer.start();
         count_timer.stop();
+    }
 }
+
+void Wait(Timer &t)
+{}
 
 void NewShot(short i)
 {
@@ -450,6 +483,7 @@ void init()
     attack_timer.start();
     rumble_timer.init(Rumble, 10, 75);
     count_timer.init(Count, 100, -1);
+    wait_timer.init(Wait, 3000, 1);
 
     plane[0].tween.init(tween_linear, -4, 159, 6000, 1);
     plane[1].tween.init(tween_linear, 163, -8, 6000, 1);
@@ -473,8 +507,8 @@ void render(uint32_t time)
     screen.mask = nullptr;
 
     //ground
-    screen.sprite(Rect(0, 0, 10, 2), Point(0 + game.rx, 106 + game.ry));
-    screen.sprite(Rect(0, 0, 10, 2), Point(80 + game.rx, 106 + game.ry));
+    screen.sprite(Rect(0, game.ground, 10, 2), Point(0 + game.rx, 106 + game.ry));
+    screen.sprite(Rect(0, game.ground, 10, 2), Point(80 + game.rx, 106 + game.ry));
 
     for (short i=0; i<3; i++)
     {
@@ -483,9 +517,9 @@ void render(uint32_t time)
         screen.sprite(Rect(game.city[i + 3], 0, 2, 1), Point(92 + (i * 20) + game.rx, 108 + game.ry));
         
         //rockets in base
-        Vec2 rpos[3][6]{{Vec2(0,116),Vec2(2,116),Vec2(0,113),Vec2(4,116),Vec2(2,113),Vec2(0,110)},
+        Vec2 rpos[3][6]{{Vec2(0,116),Vec2(2,116),Vec2(4,116), Vec2(0,113),Vec2(2,113),Vec2(0,110)},
                        {Vec2(78,116),Vec2(76,116),Vec2(80,116),Vec2(77,113),Vec2(79,113),Vec2(78,110)},
-                       {Vec2(157,116),Vec2(155,116),Vec2(157,113),Vec2(153,116),Vec2(155,113),Vec2(157,110)}};
+                       {Vec2(157,116),Vec2(155,116),Vec2(153,116),Vec2(157,113), Vec2(155,113),Vec2(157,110)}};
         for (short r=0; r<p.shot[i]; r++)
             screen.sprite(26, Point(rpos[i][r].x + game.rx, rpos[i][r].y + game.ry));
         
@@ -498,15 +532,13 @@ void render(uint32_t time)
     
     if (game.state == 1)
     {
+        short bonus = 0;
         short x = 16;
         short y = 40;
-
-        screen.pen = Pen(255, 255, 255);
-        screen.text("Missile Bonus: " + std::to_string(game.count_missiles * 5) , font, Point(16, 30), true, TextAlign::top_left);        
-
         for (short i=0; i<game.count_missiles; i++)
         {
             screen.sprite(26, Point(x, y));
+            bonus += 5;
             x += 4;
             if (x > 143)
             {
@@ -514,21 +546,27 @@ void render(uint32_t time)
                 y += 6;
             }
         }
+        screen.pen = Pen(255, 255, 255);
+        screen.text("Missile Bonus: " + std::to_string(bonus), font, Point(16, 30), true, TextAlign::top_left);        
 
-        x = 14;
-        short bonus = 0;
-
+        bonus = 0;
+        x = 0;
         for (short i=0; i<6; i++)
         {
             if (game.count_city[i] == 10)
             {
                 bonus += 100;
-                screen.sprite(Rect(10, 0, 2, 1), Point(x, 70));
                 x += 14;
+                screen.sprite(Rect(10, 0, 2, 1), Point(x, 70));
             }
         }
-        screen.text("City Bonus: " + std::to_string(bonus) , font, Point(16, 60), true, TextAlign::top_left);        
-    }            
+        screen.text("City Bonus: " + std::to_string(bonus), font, Point(16, 60), true, TextAlign::top_left);        
+    }
+    else if (game.state == 3)
+    {
+        screen.sprite(Rect(12, 8, 4, 4), Point(55, 44));
+        screen.sprite(Rect(12, 12, 4, 4), Point(79, 44));
+    }          
 
     screen.pen = Pen(0, 0, 255);
     for (short i=0; i<MAX_MISSILES; i++)
@@ -568,6 +606,7 @@ void render(uint32_t time)
     std::string score (std::to_string(game.score));
     score_txt.erase(0, score.size());
     screen.text(score_txt + score, font, Point(80, 1), true, TextAlign::top_center);        
+//    screen.text(std::to_string(game.bonus), font, Point(159, 1), true, TextAlign::top_right);        
 
     screen.pen = Pen(0, 0, 0);
 }
@@ -585,22 +624,54 @@ void update(uint32_t time)
     }
     else if (game.state == 1) // end of level
     {
-        if (count_timer.is_stopped() && buttons.released & Button::X)
+        if (count_timer.is_stopped() && wait_timer.is_finished())
         {
             game.count_missiles = 0;
+            bool city = false;
             for (short i=0; i<6; i++)
             {
-                game.city[i] = game.count_city[i];
+                if (game.city[i] > 10)
+                    game.city[i] = game.count_city[i];
                 game.count_city[i] = 14;
+                if (game.city[i] == 10)
+                    city = true;
             }
-            game.level++;
+            if (city)
+            {
+                p.pos = Vec2(79,59);
+                for (short i=0; i<3; i++)
+                {
+                    p.load[i] = true;
+                    p.mag[i] = 2;
+                }
+                game.level++;
+                game.ground += 2;
+                if (game.ground > 10)
+                    game.ground = 0;
+                game.attack = 8 + game.level;
+                game.state = 0;
+            }
+            else
+                game.state = 3;
+        }
+    }
+    else if (game.state == 3) // game over
+    {
+        if (buttons.pressed & Button::A)
+        {
             p.pos = Vec2(79,59);
             for (short i=0; i<3; i++)
             {
                 p.load[i] = true;
                 p.mag[i] = 2;
             }
-            game.attack = 8 + game.level;
+            for (short i=0; i<6; i++)
+                game.city[i] = 10;
+            game.score = 0;
+            game.bonus = 0;
+            game.level = 0;
+            game.ground = 0;
+            game.attack = 8;
             game.state = 0;
         }
     }
