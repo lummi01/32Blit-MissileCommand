@@ -3,7 +3,7 @@
 <BR>
 A classic arcade game for 32Blit.
 
-![](/assets/MissileCommand0.bmp)
+![](/assets/MissileCommand0.bmp)![](/assets/MissileCommand1.bmp)![](/assets/MissileCommand2.bmp)!
 
 
 For local build:
